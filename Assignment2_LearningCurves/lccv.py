@@ -25,8 +25,9 @@ class LCCV(VerticalModelEvaluator):
         optimistic extrapolation
         :return: The optimistic extrapolation of the performance
         """
-        raise NotImplemented()
-    
+        p_T = current_performance + (target_anchor - current_anchor) * (current_performance  - previous_performance)/(current_anchor - previous_anchor)
+        return p_T
+
     def evaluate_model(self, best_so_far: typing.Optional[float], configuration: typing.Dict) -> typing.List[typing.Tuple[int, float]]:
         """
         Does a staged evaluation of the model, on increasing anchor sizes.
@@ -43,4 +44,24 @@ class LCCV(VerticalModelEvaluator):
         the tuple consists of two elements: the anchor size and the estimated
         performance.
         """
-        raise NotImplemented()
+        if best_so_far is None:
+            return [(self.final_anchor, self.surrogate_model.predict(configuration, self.final_anchor))] # type: ignore
+        try:
+            results = []
+            steps = self.surrogate_model.df['anchor_size'].unique()
+            for step in steps:
+                performance = self.surrogate_model.predict(configuration, step)
+                if len(results) < 2: # Cannot extrapolate if there arent two points 
+                    results.append((step, performance))
+                else:
+                    prev_step = results[-1]
+                    p_T = LCCV.optimistic_extrapolation(prev_step[0], prev_step[1], step, performance, self.final_anchor)
+                    results.append((step, performance))
+
+                    if p_T > best_so_far: #If optimistic extrapolation does not outperform best so far, we can discard this configuration
+                        return results
+
+            return results
+        except TypeError:
+            print("First fit the surrogate model on the dataset before you try to evaluate a configuration")
+        

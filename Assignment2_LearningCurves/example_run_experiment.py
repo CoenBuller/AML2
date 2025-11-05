@@ -4,6 +4,8 @@ import logging
 import matplotlib.pyplot as plt
 import pandas as pd
 import os
+
+from tqdm import tqdm
 from lccv import LCCV
 from surrogate_model import SurrogateModel
 
@@ -36,28 +38,32 @@ def parse_args():
 
 
 def run(args):
-    df = pd.read_csv(args.configurations_performance_file)
-    args.max_anchor_size, args.minimal_anchor = df['anchor_size'].max(), df['anchor_size'].min() # Set max, and min anchorsize based on the dataset as this might differ between them
+    
+    df = pd.read_csv(args.configurations_performance_file) # Load in data
+
+    # Set max, and min anchorsize based on the dataset as this might differ between them
+    args.max_anchor_size = df['anchor_size'].max() 
+    args.minimal_anchor = df['anchor_size'].min()
 
     config_space = ConfigSpace.ConfigurationSpace.from_json(args.config_space_file)
+
     surrogate_model = SurrogateModel(config_space)
     surrogate_model.fit(df)
+
     lccv = LCCV(surrogate_model, args.minimal_anchor, args.max_anchor_size)
     best_so_far = None
     
-    for idx in range(args.num_iterations):
+    for idx in tqdm(range(args.num_iterations)):
         theta_new = dict(config_space.sample_configuration())
-        print(theta_new, len(theta_new))
-        break
-    #     result = lccv.evaluate_model(best_so_far, theta_new)
-    #     final_result = result[-1][1]
-    #     if best_so_far is None or final_result < best_so_far:
-    #         best_so_far = final_result
-    #     x_values = [i[0] for i in result]
-    #     y_values = [i[1] for i in result]
-    #     plt.plot(x_values, y_values, "-o")
+        result = lccv.evaluate_model(best_so_far, theta_new)
+        final_result = result[-1][1]
+        if best_so_far is None or final_result < best_so_far:
+            best_so_far = final_result
+        x_values = [i[0] for i in result]
+        y_values = [i[1] for i in result]
+        plt.plot(x_values, y_values, "-o")
 
-    # plt.show()
+    plt.show()
 
 
 if __name__ == '__main__':

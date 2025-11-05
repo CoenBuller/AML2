@@ -2,12 +2,13 @@ from abc import ABC
 import ConfigSpace
 import numpy as np
 from sklearn.pipeline import Pipeline
+from surrogate_model import SurrogateModel
 import typing
 
 
 class VerticalModelEvaluator(ABC):
 
-    def __init__(self, surrogate_model: Pipeline, minimal_anchor: int, final_anchor: int) -> None:
+    def __init__(self, surrogate_model: SurrogateModel, minimal_anchor: int, final_anchor: int) -> None:
         """
         Initialises the vertical model evaluator. Take note of what the arguments are
         
