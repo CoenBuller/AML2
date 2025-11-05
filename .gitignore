@@ -1,2 +1,5 @@
 #Ignore virtual env
 *aml2 
+
+#ignore the __pycache__ files
+__pycache__
