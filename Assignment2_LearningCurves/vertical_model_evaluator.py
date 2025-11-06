@@ -20,5 +20,5 @@ class VerticalModelEvaluator(ABC):
         self.minimal_anchor = minimal_anchor
         self.final_anchor = final_anchor
 
-    def evaluate_model(self, best_so_far: float, configuration: typing.Dict) -> typing.List[float]:
-        raise NotImplemented()
+    def evaluate_model(self, best_so_far: None|float, configuration: typing.Dict) -> typing.List[typing.Tuple[int, float]]:
+        raise NotImplementedError()

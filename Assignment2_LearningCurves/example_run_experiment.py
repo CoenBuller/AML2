@@ -7,6 +7,7 @@ import os
 
 from tqdm import tqdm
 from lccv import LCCV
+from IPL import IPL
 from surrogate_model import SurrogateModel
 
 DATASET_IDX = 6 # Change this to corresponding idx of dataset to load in that dataset
@@ -32,7 +33,7 @@ def parse_args():
     # max_anchor_size: connected to the configurations_performance_file. The max value upon which anchors are sampled
     parser.add_argument('--minimal_anchor', type=int, default=256)
     parser.add_argument('--max_anchor_size', type=int, default=16000)
-    parser.add_argument('--num_iterations', type=int, default=50)
+    parser.add_argument('--num_iterations', type=int, default=20)
 
     return parser.parse_args()
 
@@ -50,10 +51,10 @@ def run(args):
     surrogate_model = SurrogateModel(config_space)
     surrogate_model.fit(df)
 
-    lccv = LCCV(surrogate_model, args.minimal_anchor, args.max_anchor_size)
+    lccv = IPL(surrogate_model, args.minimal_anchor, args.max_anchor_size)
     best_so_far = None
     
-    for idx in tqdm(range(args.num_iterations)):
+    for idx in range(args.num_iterations):
         theta_new = dict(config_space.sample_configuration())
         result = lccv.evaluate_model(best_so_far, theta_new)
         final_result = result[-1][1]
