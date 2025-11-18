@@ -5,37 +5,17 @@ import scipy
 import tqdm
 
 from vertical_model_evaluator import VerticalModelEvaluator
+from scipy.optimize import curve_fit   
 
 class IPL(VerticalModelEvaluator):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    # @staticmethod
-    # def inverse_power_law(x, a, b):
-    #     f_x = 1/(a * x**b)
-    #     return f_x
-
-    # Inverse Power Law function: with offset term 
     @staticmethod
     def inverse_power_law(x, a, b, c):
         # y = c + a * x^(-b)
         x = np.asarray(x, dtype=float)
         return c + a * np.power(x, -b)
-    
-
-    # @staticmethod
-    # def fit_inverse_power(performance: typing.List[typing.Tuple[int, float]]):
-    #     # Fit inverse power law function to observed data
-    #     x = []
-    #     y = []
-    #     for xi, perf in performance:
-    #         x.append(xi)
-    #         y.append(perf)
-
-    #     popt, pcov = scipy.optimize.curve_fit(IPL.inverse_power_law, x, y)
-    #     return popt, pcov
-
-
 
     @staticmethod
     def fit_inverse_power(performance: typing.List[typing.Tuple[int, float]]):
@@ -69,10 +49,34 @@ class IPL(VerticalModelEvaluator):
         p0 = (a0, b0, c0)
         bounds = ((1e-9, 1e-9, 0.0), (1e9, 10.0, 1e6))
 
+
         try:
-            popt, pcov = curve_fit(IPL.inverse_power_law, x, y, p0=p0, bounds=bounds, maxfev=20000)
-        except Exception:
-            return None, None, None
+            popt, pcov = curve_fit(
+                IPL.inverse_power_law, x, y, p0=p0, bounds=bounds, maxfev=20000
+            )
+        except (RuntimeError, ValueError) as e:
+            print(f"[IPL] 3-param fit failed: {e}")
+
+            # Fallback to 2param fit
+            def _ipl2(x, a, b):
+                x = np.asarray(x, float)
+                return a * np.power(x, -b)
+
+            try:
+                a0_2 = max(1e-6, float(np.median(y)))
+                b0_2 = 1.0
+                p0_2 = (a0_2, b0_2)
+                bounds_2 = ((1e-9, 1e-9), (1e9, 10.0))
+                popt2, pcov2 = curve_fit(_ipl2, x, y, p0=p0_2, bounds=bounds_2, maxfev=20000)
+                # Promote to 3-param shape (a,b,c) with c=0
+                popt = (popt2[0], popt2[1], 0.0)
+                pcov = np.pad(pcov2, ((0, 1), (0, 1)), constant_values=0.0)
+                print(f"[IPL] 2-param fallback succeeded: a={popt2[0]:.3f}, b={popt2[1]:.3f}")
+            except (RuntimeError, ValueError) as e2:
+                print(f"[IPL] 2-param fallback failed: {e2}")
+                return None, None, None
+
+
 
         # Goodness-of-fit (R^2)
         y_hat = IPL.inverse_power_law(x, *popt)
@@ -98,77 +102,66 @@ class IPL(VerticalModelEvaluator):
         return float(yT), float(np.sqrt(var))
 
 
-
-    
-    # def evaluate_model(self, best_so_far: typing.Optional[float], configuration: typing.Dict) -> typing.List[typing.Tuple[int, float]]:
-    #     if best_so_far is None: #If no best yet, evaluate with external surrogate at max anchor size
-    #         return [(self.final_anchor, self.surrogate_model.predict(configuration, self.final_anchor))]
-        
-    #     train_anchors = np.linspace(0, self.final_anchor*0.4, 10) # We will evaluate 10 anchor sizes uptill 0.4*max_anchor 
-    #     results = []
-    #     for anchor in train_anchors:
-    #         # Evaluate performance of this model on pre-determined anchor sizes
-    #         results.append((anchor, self.surrogate_model.predict(configuration, int(anchor))))
-        
-    #     popt, pcov = IPL.fit_inverse_power(performance=results) # Fit inverse power law (IPL) function to data
-    #     best = IPL.inverse_power_law(self.final_anchor, popt[0], popt[1]) # Predict performance at max anchor size using IPL
-    #     if best < best_so_far:
-    #         results.append((self.final_anchor, best))
-    #     return results
-
     def evaluate_model(
-        self, best_so_far: typing.Optional[float], configuration: typing.Dict
+        self,
+        best_so_far: typing.Optional[float],
+        configuration: typing.Dict
     ) -> typing.List[typing.Tuple[int, float]]:
-        # No incumbent yet → evaluate full anchor via surrogate
-        if best_so_far is None:
-            perf = self.surrogate_model.predict(configuration, self.final_anchor)
-            return [(self.final_anchor, perf)]
+        """
+        IPL evaluator with a FIXED learning-curve schedule (as required by the assignment).
+        Steps:
+        1) Evaluate a fixed set of early anchors for this dataset.
+        2) Fit an inverse power law to these points.
+        3) Predict performance at the final anchor.
+        4) If predicted_final < best_so_far (or best_so_far is None), evaluate final anchor.
+            Otherwise, discard (early stop).
+        """
+        if not hasattr(self.surrogate_model, "df"):
+            raise ValueError("SurrogateModel must store the training dataframe as 'self.df' in fit().")
 
-        # Build schedule of real anchors from the surrogate's data
-        if hasattr(self.surrogate_model, "df"):
-            anchors_in_data = sorted(set(int(a) for a in self.surrogate_model.df["anchor_size"]))
-        else:
-            anchors_in_data = [self.minimal_anchor * (2 ** i)
-                            for i in range(int(np.log2(self.final_anchor / self.minimal_anchor)) + 1)]
-
-        # Use anchors up to ~60% of the final anchor (captures curvature better)
-        early_limit = int(0.6 * self.final_anchor)
-        schedule = [a for a in anchors_in_data if self.minimal_anchor <= a <= early_limit]
+        anchors_in_data = sorted(set(int(a) for a in self.surrogate_model.df["anchor_size"]))
 
 
-        # Evaluate surrogate at these anchors
-        results = []
+        # fixed achoirs -- pak eerste paar
+        schedule = anchors_in_data[:-1]      # all but final
+        # schedule = anchors_in_data[:5]
+        # schedule = [a for a in schedule if a < self.final_anchor]
+
+        #Evaluation
+        results: typing.List[typing.Tuple[int, float]] = []
         for anchor in schedule:
-            perf = self.surrogate_model.predict(configuration, int(anchor))
-            results.append((int(anchor), float(perf)))
+            perf = float(self.surrogate_model.predict(configuration, anchor))
+            results.append((anchor, perf))
 
-        # Fit IPL to early points
+        # fitting
         popt, pcov, r2 = IPL.fit_inverse_power(results)
 
-        # If fit fails or is unreliable, be conservative
-        if popt is None or (r2 is not None and r2 < 0.15):
-            if results[-1][1] >= best_so_far:
-                return results  # discard (early stop)
-            final_perf = self.surrogate_model.predict(configuration, self.final_anchor)
-            results.append((self.final_anchor, float(final_perf)))
+        # If fit fails, fall back to "evaluate final if it's better than last point"
+        if popt is None:
+            last_perf = results[-1][1]
+            if best_so_far is None or last_perf < best_so_far:
+                final_perf = float(self.surrogate_model.predict(configuration, self.final_anchor))
+                results.append((self.final_anchor, final_perf))
             return results
 
-        # Predict performance at final anchor, with uncertainty
-        pred_final, sigma = self._predict_final_with_unc(popt, pcov, self.final_anchor)
+        # Predict final performance using the parametric IPL model
+        pred_final = float(IPL.inverse_power_law(self.final_anchor, *popt))
 
-        # use an optimistic threshold; tweak k if too aggressive/conservative
-        k = 1.0
-        optimistic = pred_final - (k * sigma if sigma is not None else 0.0)
+        print(f"[IPL] r²={r2:.3f} | pred_final={pred_final:.4f} | best={best_so_far if best_so_far is not None else float('inf'):.4f}")
 
-        print(f"[IPL] r²={r2:.3f} | pred={pred_final:.4f} | σ={sigma if sigma is not None else 'NA'} | "
-            f"optimistic={optimistic:.4f} | best={best_so_far:.4f}")
-
-        # Early-stop rule (lower is better)
-        eps = 1e-4
-        if optimistic >= best_so_far - eps:
-            return results  # discard
-        else:
-            final_perf = self.surrogate_model.predict(configuration, self.final_anchor)
-            results.append((self.final_anchor, float(final_perf)))
+        # early stopping
+        # Case A: no incumbent yet → always evaluate final anchor to establish best_so_far
+        if best_so_far is None:
+            final_perf = float(self.surrogate_model.predict(configuration, self.final_anchor))
+            results.append((self.final_anchor, final_perf))
             return results
+
+        # Case B: IPL says it's promising → evaluate final
+        if pred_final < best_so_far:
+            final_perf = float(self.surrogate_model.predict(configuration, self.final_anchor))
+            results.append((self.final_anchor, final_perf))
+            return results
+
+        # Case C: predicted final is not better → early stop
+        return results
 

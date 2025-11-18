@@ -28,7 +28,7 @@ class SurrogateModel:
         :param df: the dataframe with performances
         :return: Does not return anything, but stores the trained model in self.model
         """
-        self.df = df
+        self.df = df.copy() #changed for seperate df
         y = df.iloc[:, -1]
         X = df.iloc[:, :-1]
         categorical_col_names = X.select_dtypes(include=['object', 'bool']).columns
