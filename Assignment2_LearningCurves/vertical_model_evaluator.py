@@ -8,7 +8,7 @@ import typing
 
 class VerticalModelEvaluator(ABC):
 
-    def __init__(self, surrogate_model: SurrogateModel, minimal_anchor: int, final_anchor: int) -> None:
+    def __init__(self, surrogate_model: SurrogateModel, minimal_anchor: int, final_anchor: int, budget: int, results={}, anchors=None) -> None:
         """
         Initialises the vertical model evaluator. Take note of what the arguments are
         
@@ -19,6 +19,10 @@ class VerticalModelEvaluator(ABC):
         self.surrogate_model = surrogate_model
         self.minimal_anchor = minimal_anchor
         self.final_anchor = final_anchor
+        self.results = results
+        self.budget = budget
+        self.anchors = anchors # Initial anchors to evaluate for IPL method
 
-    def evaluate_model(self, best_so_far: None|float, configuration: typing.Dict) -> typing.List[typing.Tuple[int, float]]:
+    def evaluate_model(self, best_so_far: None|float, conf: typing.Dict):
         raise NotImplementedError()
+    

@@ -105,7 +105,7 @@ class IPL(VerticalModelEvaluator):
     def evaluate_model(
         self,
         best_so_far: typing.Optional[float],
-        configuration: typing.Dict
+        conf: typing.Dict
     ) -> typing.List[typing.Tuple[int, float]]:
         """
         IPL evaluator with a FIXED learning-curve schedule (as required by the assignment).
@@ -118,19 +118,41 @@ class IPL(VerticalModelEvaluator):
         """
         if not hasattr(self.surrogate_model, "df"):
             raise ValueError("SurrogateModel must store the training dataframe as 'self.df' in fit().")
+        
+        results=[] # Store results. format: (anchor, score)
+        conf_tuple = tuple(conf.values())
+        if conf_tuple not in self.results:
+            self.results[conf_tuple] = []
+
+        # early stopping
+        # Case A: no incumbent yet → always evaluate final anchor to establish best_so_far
+        if best_so_far is None:
+            final_perf = float(self.surrogate_model.predict(conf, self.final_anchor))
+            results.append((self.final_anchor, final_perf))
+
+            # ------ Added/Changed -------
+            self.budget -= self.final_anchor
+            self.results[conf_tuple] = results
+
+            return results
 
         anchors_in_data = sorted(set(int(a) for a in self.surrogate_model.df["anchor_size"]))
 
 
         # fixed achoirs -- pak eerste paar
-        schedule = anchors_in_data[:-1]      # all but final
+
+        # ------ Added/Changed -------
+        if self.anchors is None:
+            schedule = anchors_in_data[:-1]  # all but final
+        else:
+            schedule = self.anchors
+        
         # schedule = anchors_in_data[:5]
         # schedule = [a for a in schedule if a < self.final_anchor]
 
         #Evaluation
-        results: typing.List[typing.Tuple[int, float]] = []
         for anchor in schedule:
-            perf = float(self.surrogate_model.predict(configuration, anchor))
+            perf = float(self.surrogate_model.predict(conf, anchor))
             results.append((anchor, perf))
 
         # fitting
@@ -140,8 +162,13 @@ class IPL(VerticalModelEvaluator):
         if popt is None:
             last_perf = results[-1][1]
             if best_so_far is None or last_perf < best_so_far:
-                final_perf = float(self.surrogate_model.predict(configuration, self.final_anchor))
+                final_perf = float(self.surrogate_model.predict(conf, self.final_anchor))
                 results.append((self.final_anchor, final_perf))
+
+            # ------ Added/Changed -------
+            self.budget -= self.final_anchor
+            self.results[conf_tuple] = results
+
             return results
 
         # Predict final performance using the parametric IPL model
@@ -149,19 +176,22 @@ class IPL(VerticalModelEvaluator):
 
         print(f"[IPL] r²={r2:.3f} | pred_final={pred_final:.4f} | best={best_so_far if best_so_far is not None else float('inf'):.4f}")
 
-        # early stopping
-        # Case A: no incumbent yet → always evaluate final anchor to establish best_so_far
-        if best_so_far is None:
-            final_perf = float(self.surrogate_model.predict(configuration, self.final_anchor))
-            results.append((self.final_anchor, final_perf))
-            return results
-
         # Case B: IPL says it's promising → evaluate final
         if pred_final < best_so_far:
-            final_perf = float(self.surrogate_model.predict(configuration, self.final_anchor))
+            final_perf = float(self.surrogate_model.predict(conf, self.final_anchor))
             results.append((self.final_anchor, final_perf))
+
+            
+            # ------ Added/Changed -------
+            self.budget -= self.final_anchor
+            self.results[conf_tuple] = results
+            
             return results
 
+        
+        # ------ Added/Changed -------
+        self.budget -= self.final_anchor
+        self.results[conf_tuple] = results
         # Case C: predicted final is not better → early stop
         return results
 

@@ -47,7 +47,7 @@ def run(args):
     args.minimal_anchor = df['anchor_size'].min()
 
     config_space = ConfigSpace.ConfigurationSpace.from_json(args.config_space_file)
-
+    print(config_space.get_default_configuration())
     surrogate_model = SurrogateModel(config_space)
     surrogate_model.fit(df)
 
