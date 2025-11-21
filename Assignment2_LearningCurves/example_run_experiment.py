@@ -50,7 +50,7 @@ def run(args):
     surrogate_model = SurrogateModel(config_space)
     surrogate_model.fit(df)
 
-    lccv = IPL(surrogate_model, args.minimal_anchor, args.max_anchor_size, budget=None)
+    lccv = IPL(surrogate_model, args.minimal_anchor, args.max_anchor_size, budget=float('inf'))
     best_so_far = None
     
     for idx in range(args.num_iterations):
