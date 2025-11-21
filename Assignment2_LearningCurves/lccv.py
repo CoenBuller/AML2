@@ -55,18 +55,19 @@ class LCCV(VerticalModelEvaluator):
         if best_so_far is None: # No best yet so evaluate current config at max anchorsize
             best_performance = self.surrogate_model.predict(conf, self.final_anchor)  
 
-            self.results[configuration] += [(self.final_anchor, best_performance)] 
+            self.results[configuration] += [(int(self.final_anchor), float(best_performance))] 
             self.budget -= self.final_anchor 
 
             return best_performance # type: ignore
         
         try:
-            steps = self.surrogate_model.df['anchor_size'].unique() # type: ignore
+            steps = sorted(self.surrogate_model.df['anchor_size'].unique()) # type: ignore
             for step in steps:
 
                 if len(self.results[configuration]) < 2: # Cannot extrapolate if there arent two points 
                     performance = self.surrogate_model.predict(conf, step)
-                    self.results[configuration] += [(step, performance)]
+                    self.results[configuration] += [(int(step), float(performance))]
+
 
                 else:
                     prev1 = self.results[configuration][-1]
@@ -80,11 +81,13 @@ class LCCV(VerticalModelEvaluator):
                     # If optimistic extrapolation does outperform the best so far, we can evaluate the performance using the surrogate
                     performance = self.surrogate_model.predict(conf, step)
                     self.budget -= step
-                    self.results[configuration] += [(step, performance)]
+                    self.results[configuration] += [(int(step), float(performance))]
 
             return self.results[configuration][-1][1] # Return last performance for evaluation
         
-        except TypeError:
-            print("First fit the surrogate model on the dataset before you try to evaluate a configuration")
+
+        except (AttributeError, KeyError) as e:
+            # CHANGED: Better error handling with specific exceptions
+            logging.error("Surrogate model not properly initialized: %s", e)
             return None
         

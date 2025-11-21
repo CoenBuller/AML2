@@ -47,11 +47,10 @@ def run(args):
     args.minimal_anchor = df['anchor_size'].min()
 
     config_space = ConfigSpace.ConfigurationSpace.from_json(args.config_space_file)
-    print(config_space.get_default_configuration())
     surrogate_model = SurrogateModel(config_space)
     surrogate_model.fit(df)
 
-    lccv = IPL(surrogate_model, args.minimal_anchor, args.max_anchor_size)
+    lccv = IPL(surrogate_model, args.minimal_anchor, args.max_anchor_size, budget=None)
     best_so_far = None
     
     for idx in range(args.num_iterations):

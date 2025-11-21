@@ -128,7 +128,7 @@ class IPL(VerticalModelEvaluator):
         # Case A: no incumbent yet → always evaluate final anchor to establish best_so_far
         if best_so_far is None:
             final_perf = float(self.surrogate_model.predict(conf, self.final_anchor))
-            results.append((self.final_anchor, final_perf))
+            results.append((int(self.final_anchor), float(final_perf)))
 
             # ------ Added/Changed -------
             self.budget -= self.final_anchor
@@ -153,7 +153,7 @@ class IPL(VerticalModelEvaluator):
         #Evaluation
         for anchor in schedule:
             perf = float(self.surrogate_model.predict(conf, anchor))
-            results.append((anchor, perf))
+            results.append((int(anchor), float(perf)))
 
         # fitting
         popt, pcov, r2 = IPL.fit_inverse_power(results)
@@ -163,7 +163,7 @@ class IPL(VerticalModelEvaluator):
             last_perf = results[-1][1]
             if best_so_far is None or last_perf < best_so_far:
                 final_perf = float(self.surrogate_model.predict(conf, self.final_anchor))
-                results.append((self.final_anchor, final_perf))
+                results.append((int(self.final_anchor), float(final_perf)))
 
             # ------ Added/Changed -------
             self.budget -= self.final_anchor
@@ -179,7 +179,7 @@ class IPL(VerticalModelEvaluator):
         # Case B: IPL says it's promising → evaluate final
         if pred_final < best_so_far:
             final_perf = float(self.surrogate_model.predict(conf, self.final_anchor))
-            results.append((self.final_anchor, final_perf))
+            results.append((int(self.final_anchor), float(final_perf)))
 
             
             # ------ Added/Changed -------

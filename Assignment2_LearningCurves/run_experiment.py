@@ -55,7 +55,7 @@ def run(args, filename: str | None =None):
     surrogate_model = SurrogateModel(config_space)
     surrogate_model.fit(df)
 
-    budget = 50 * args.max_anchor_size # Chose an arbitrary budget
+    budget = 10 * args.max_anchor_size # Chose an arbitrary budget
 
     print(f"Available budget = {budget}")
 
@@ -64,7 +64,7 @@ def run(args, filename: str | None =None):
 
     print("--------------- Testing LCCV -------------- \n \n")
 
-    lccv_results_df = pd.DataFrame([], columns=list(config_space.keys()) + ['anchor_size', 'score', 'config_id'])
+    lccv_results_df = pd.DataFrame([], columns=['anchor', 'score', 'config_id'])
 
     lccv = LCCV(surrogate_model=surrogate_model, minimal_anchor=args.minimal_anchor, final_anchor=args.max_anchor_size, budget=budget)
     best_f = None
@@ -74,26 +74,26 @@ def run(args, filename: str | None =None):
 
         configs_best = lccv.evaluate_model(best_so_far=best_f, conf=config) # type: ignore
         if configs_best == None:
-            print('First train the surrogate model')
-            break
-        if best_f is None:
+            raise ValueError("Surrogate model is not trained yet. Do that first.")
+
+        if best_f is None or configs_best < best_f:
             best_f = configs_best
-        else:
-            best_f = configs_best if configs_best < best_f else best_f # type: ignore
 
         # Create own learning curve
-        for anchor, score in lccv.results[tuple(config.values())]:
-            theta_dict = {hp: config_default_values.get(hp, None) for hp in HP_space} 
-            theta_dict.update(enc_defaults)
-            theta_dict.update(config)
+        config_tuple = tuple(config.values())
+        theta_dict = {'score': 0., 'anchor': 0, 'config_id':0}
+        for anchor, score in lccv.results[config_tuple]:
             theta_dict['score'] = score
             theta_dict['anchor'] = anchor
             theta_dict['config_id'] = config_id
+            lccv_results_df.loc[len(lccv_results_df)] = theta_dict #type: ignore
+
+        config_id += 1
         
-        lccv_results_df.loc[len(lccv_results_df)] = theta_dict #type: ignore
 
     if filename is not None:
-        lccv_results_df.to_csv(filename+"_lccv.csv") # Save dataframe
+        filename_lccv = filename + "_lccv.csv"
+        lccv_results_df.to_csv(filename+"_lccv.csv", index=False) # Save dataframe
 
     print(f"Best score using LCCV: {best_f}")
     print(f"Cost: {budget - lccv.budget}")
@@ -103,8 +103,7 @@ def run(args, filename: str | None =None):
 
     print("--------------- Testing IPL -------------- \n \n")
 
-    ipl_results_df = pd.DataFrame([], columns=list(config_space.keys()) + ['anchor_size', 'score', 'config_id'])
-
+    ipl_results_df = pd.DataFrame([], columns=['anchor', 'score', 'config_id'])
     best_ipl = None
     anchors = np.linspace(args.minimal_anchor, int(0.5*args.max_anchor_size), 5).astype(np.int32) # Anchor sizes that evaluate per configuration
     ipl = IPL(surrogate_model=surrogate_model, minimal_anchor=args.minimal_anchor, final_anchor=args.max_anchor_size, budget=budget, anchors=anchors)
@@ -119,24 +118,65 @@ def run(args, filename: str | None =None):
             best_ipl = r[-1][1] if r[-1][1] < best_ipl else best_ipl
 
         # Create own learning curve
+        theta_dict = {'score': 0., 'anchor': 0, 'config_id':0}
         for anchor, score in ipl.results[tuple(config.values())]:
-            theta_dict = {hp: config_default_values.get(hp, None) for hp in HP_space} 
-            theta_dict.update(enc_defaults)
-            theta_dict.update(config)
             theta_dict['score'] = score
             theta_dict['anchor'] = anchor
             theta_dict['config_id'] = config_id
-        
-        ipl_results_df.loc[len(ipl_results_df)] = theta_dict #type: ignore
+            ipl_results_df.loc[len(ipl_results_df)] = theta_dict #type: ignore
+
+        config_id += 1
 
     if filename is not None:
-        ipl_results_df.to_csv(filename+"_ipl.csv") # Save dataframe
+        filename_ipl = filename+"_ipl.csv"
+        ipl_results_df.to_csv(filename_ipl, index=False) # Save dataframe
     
     print(f"Best score using IPL: {best_ipl}")
     print(f"Cost: {budget - ipl.budget}")
 
+    # Always return a tuple of filenames (or (None, None) if filename not provided)
+    if filename is not None:
+        return filename_lccv, filename_ipl  # type: ignore
+    return None, None
+
+
 if __name__ == '__main__':
+    dataset_id = 6
     root = logging.getLogger()
     root.setLevel(logging.INFO)
 
-    run(parse_args(dataset_idx=6), filename='first_try')
+    fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+    
+    ax[0].set_xlabel('anchor_size')
+    ax[1].set_xlabel('anchor_size')
+    ax[0].set_ylabel('score')
+
+    ax[0].set_title(f'LCCV on dataset {dataset_id}')
+    ax[1].set_title(f'IPL on dataset {dataset_id}')
+
+    lccv_file, ipl_file = run(parse_args(dataset_idx=dataset_id), filename='first_try')
+    if lccv_file:
+        lccv_df = pd.read_csv(lccv_file)
+        for id in lccv_df['config_id'].unique():
+            selection = (lccv_df['config_id'] == id )
+            scores = lccv_df[selection]['score'].reset_index(drop=True)
+            anchors = lccv_df[selection]['anchor'].reset_index(drop=True)
+            sort = np.argsort(anchors)
+            if id == 0:
+                ax[0].hlines(scores, xmin=0, xmax=lccv_df['anchor'].max(), linestyle='--')
+            else:
+                ax[0].plot(anchors[sort], scores[sort], linestyle=':')
+
+    if ipl_file:
+        ipl_df = pd.read_csv(ipl_file)
+        
+        for id in ipl_df['config_id'].unique():
+            selection = (ipl_df['config_id'] == id )
+            scores = ipl_df[selection]['score'].reset_index(drop=True)
+            anchors = ipl_df[selection]['anchor'].reset_index(drop=True)
+            sort = np.argsort(anchors)
+            if id == 0:
+                ax[1].hlines(scores, xmin=0, xmax=ipl_df['anchor'].max(), linestyle='--')
+            else:
+                ax[1].plot(anchors[sort], scores[sort], linestyle=':')
+    plt.show()
