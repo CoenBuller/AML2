@@ -136,7 +136,7 @@ def run(args, filename: str | None =None):
 
     random_budget = budget
     best_random = float('inf')
-    cost = budget - args.max_anchor_size*int(budget/args.max_anchor_size)
+    cost = args.max_anchor_size*int(budget/args.max_anchor_size)
     samples = config_space.sample_configuration(int(budget/args.max_anchor_size))
     for sample in samples:
         eval = surrogate_model.predict(sample, args.max_anchor_size)
