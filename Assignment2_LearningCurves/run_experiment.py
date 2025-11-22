@@ -69,7 +69,7 @@ def run(args, filename: str | None =None):
     lccv = LCCV(surrogate_model=surrogate_model, minimal_anchor=args.minimal_anchor, final_anchor=args.max_anchor_size, budget=budget)
     best_f = None
     lccv_id = 0
-    while lccv.budget > df['anchor_size'].unique().sum():
+    while lccv.budget > sum(np.linspace(0.3*args.max_anchor_size, 0.8*args.max_anchor_size, 6)) + args.max_anchor_size:
         config = config_space.sample_configuration()
 
         configs_best = lccv.evaluate_model(best_so_far=best_f, conf=config) # type: ignore
@@ -109,7 +109,7 @@ def run(args, filename: str | None =None):
     ipl = IPL(surrogate_model=surrogate_model, minimal_anchor=args.minimal_anchor, final_anchor=args.max_anchor_size, budget=budget, anchors=anchors)
         
     ipl_id = 0
-    while ipl.budget > np.sum(anchors):
+    while ipl.budget > np.sum(anchors) + args.max_anchor_size:
         config = config_space.sample_configuration()
         r = ipl.evaluate_model(best_so_far=best_ipl, conf=dict(config))
         if best_ipl is None:
@@ -157,8 +157,8 @@ if __name__ == '__main__':
     ipl_dict = {'best_f': [], 'cost': [], 'num_hpc': []}
     random_dict = {'best_f': [], 'cost': [], 'num_hpc': []}
 
-    dataset_id = 6
-    print(f'Available budget = {10 * 16000}')
+    dataset_id = 1457
+    print(f'Available budget = {10 * 1200}')
     for _ in tqdm(range(20)):
 
         root = logging.getLogger()
