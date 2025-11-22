@@ -218,7 +218,7 @@ if __name__ == '__main__':
     LCCV results \n
     |       | mean | std  | \n 
     | score | {round(np.mean(lccv_dict['best_f']), 3)} | {round(np.std(lccv_dict['best_f']), 3)} | \n
-    | cost  | {round(np.mean(lccv_dict['best_f']), 3)} | {round(np.std(lccv_dict['cost']), 3)} | \n 
+    | cost  | {round(np.mean(lccv_dict['cost']), 3)} | {round(np.std(lccv_dict['cost']), 3)} | \n 
     | #hpc  | {round(np.mean(lccv_dict['num_hpc']), 3)} | {round(np.std(lccv_dict['num_hpc']), 3)} | \n
     """)
         
@@ -226,7 +226,7 @@ if __name__ == '__main__':
     IPL results \n 
     |       | mean | std  | \n 
     | score | {round(np.mean(ipl_dict['best_f']), 3)} | {round(np.std(ipl_dict['best_f']), 3)} | \n
-    | cost  | {round(np.mean(ipl_dict['best_f']), 3)} | {round(np.std(ipl_dict['cost']), 3)} | \n 
+    | cost  | {round(np.mean(ipl_dict['cost']), 3)} | {round(np.std(ipl_dict['cost']), 3)} | \n 
     | #hpc  | {round(np.mean(ipl_dict['num_hpc']), 3)} | {round(np.std(ipl_dict['num_hpc']), 3)} | \n
     """)
         
@@ -234,7 +234,7 @@ if __name__ == '__main__':
     Random results \n 
     |       | avg  | std  | \n 
     | score | {round(np.mean(random_dict['best_f']), 3)} | {round(np.std(random_dict['best_f']), 3)} | \n
-    | cost  | {round(np.mean(random_dict['best_f']), 3)} | {round(np.std(random_dict['cost']), 3)} | \n
+    | cost  | {round(np.mean(random_dict['cost']), 3)} | {round(np.std(random_dict['cost']), 3)} | \n
     | #hpc  | {round(np.mean(random_dict['num_hpc']), 3)} | {round(np.std(random_dict['num_hpc']), 3)} | \n
  
     """)

@@ -61,10 +61,9 @@ class LCCV(VerticalModelEvaluator):
             return self.results[configuration] # type: ignore
         
         try:
-            steps = sorted(self.surrogate_model.df['anchor_size'].unique()) # type: ignore
+            steps = np.arange(0.2*self.final_anchor, 0.8*self.final_anchor, 5) # type: ignore
             for step in steps:
-
-                if step < 0.2*self.final_anchor: # Cannot extrapolate if there arent two points 
+                if len(self.results[configuration]) < 2: # Cannot extrapolate if there arent two points 
                     performance = self.surrogate_model.predict(conf, step)
                     self.results[configuration] += [(int(step), float(performance))]
                     self.budget -= step
