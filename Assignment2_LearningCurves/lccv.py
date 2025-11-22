@@ -28,7 +28,7 @@ class LCCV(VerticalModelEvaluator):
         optimistic extrapolation
         :return: The optimistic extrapolation of the performance
         """
-        p_T = current_performance + (target_anchor - current_anchor) * (current_performance  - previous_performance)/(current_anchor - previous_anchor)
+        p_T = current_performance + (target_anchor - current_anchor) * (previous_performance  - current_performance)/(previous_anchor - current_anchor)
         return p_T
 
     def evaluate_model(self, best_so_far: typing.Optional[float], conf: typing.Dict) -> float | None:
@@ -58,15 +58,16 @@ class LCCV(VerticalModelEvaluator):
             self.results[configuration] += [(int(self.final_anchor), float(best_performance))] 
             self.budget -= self.final_anchor 
 
-            return best_performance # type: ignore
+            return self.results[configuration] # type: ignore
         
         try:
             steps = sorted(self.surrogate_model.df['anchor_size'].unique()) # type: ignore
             for step in steps:
 
-                if len(self.results[configuration]) < 2: # Cannot extrapolate if there arent two points 
+                if step < 0.2*self.final_anchor: # Cannot extrapolate if there arent two points 
                     performance = self.surrogate_model.predict(conf, step)
                     self.results[configuration] += [(int(step), float(performance))]
+                    self.budget -= step
 
 
                 else:
@@ -83,7 +84,7 @@ class LCCV(VerticalModelEvaluator):
                     self.budget -= step
                     self.results[configuration] += [(int(step), float(performance))]
 
-            return self.results[configuration][-1][1] # Return last performance for evaluation
+            return self.results[configuration] # Return last performance for evaluation
         
 
         except (AttributeError, KeyError) as e:

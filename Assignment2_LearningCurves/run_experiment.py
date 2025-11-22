@@ -57,12 +57,12 @@ def run(args, filename: str | None =None):
 
     budget = 10 * args.max_anchor_size # Chose an arbitrary budget
 
-    print(f"Available budget = {budget}")
+    # print(f"Available budget = {budget}")
 
 
     # ------------ Evaluate LCCV with this budget -------------
 
-    print("--------------- Testing LCCV -------------- \n \n")
+    # print("--------------- Testing LCCV -------------- \n \n")
 
     lccv_results_df = pd.DataFrame([], columns=['anchor', 'score', 'config_id'])
 
@@ -76,8 +76,8 @@ def run(args, filename: str | None =None):
         if configs_best == None:
             raise ValueError("Surrogate model is not trained yet. Do that first.")
 
-        if best_f is None or configs_best < best_f:
-            best_f = configs_best
+        if best_f is None or configs_best[-1][1] < best_f:
+            best_f = configs_best[-1][1]
 
         # Create own learning curve
         config_tuple = tuple(config.values())
@@ -95,17 +95,17 @@ def run(args, filename: str | None =None):
         filename_lccv = filename + "_lccv.csv"
         lccv_results_df.to_csv(filename+"_lccv.csv", index=False) # Save dataframe
 
-    print(f"Best score using LCCV: {best_f}")
-    print(f"Cost: {budget - lccv.budget}")
+    # print(f"Best score using LCCV: {best_f}")
+    # print(f"Cost: {budget - lccv.budget}")
 
     
     # ------------ Evaluate IPL with this budget -------------
 
-    print("--------------- Testing IPL -------------- \n \n")
+    # print("--------------- Testing IPL -------------- \n \n")
 
     ipl_results_df = pd.DataFrame([], columns=['anchor', 'score', 'config_id'])
     best_ipl = None
-    anchors = np.linspace(args.minimal_anchor, int(0.5*args.max_anchor_size), 5).astype(np.int32) # Anchor sizes that evaluate per configuration
+    anchors = np.linspace(args.minimal_anchor, int(0.4*args.max_anchor_size), 5).astype(np.int32) # Anchor sizes that evaluate per configuration
     ipl = IPL(surrogate_model=surrogate_model, minimal_anchor=args.minimal_anchor, final_anchor=args.max_anchor_size, budget=budget, anchors=anchors)
         
     config_id = 0
@@ -131,52 +131,104 @@ def run(args, filename: str | None =None):
         filename_ipl = filename+"_ipl.csv"
         ipl_results_df.to_csv(filename_ipl, index=False) # Save dataframe
     
-    print(f"Best score using IPL: {best_ipl}")
-    print(f"Cost: {budget - ipl.budget}")
+    # print(f"Best score using IPL: {best_ipl}")
+    # print(f"Cost: {budget - ipl.budget}")
+
+    random_budget = budget
+    best_random = float('inf')
+    cost = budget - args.max_anchor_size*int(budget/args.max_anchor_size)
+    samples = config_space.sample_configuration(int(budget/args.max_anchor_size))
+    for sample in samples:
+        eval = surrogate_model.predict(sample, args.max_anchor_size)
+        if eval < best_random:
+            best_random = eval
+
 
     # Always return a tuple of filenames (or (None, None) if filename not provided)
     if filename is not None:
-        return filename_lccv, filename_ipl  # type: ignore
-    return None, None
+        return filename_lccv, filename_ipl, (budget - lccv.budget, best_f), (budget - ipl.budget, best_ipl)  # type: ignore
+    return None, None, (budget - lccv.budget, best_f), (budget - ipl.budget, best_ipl), (cost, best_random)
+
+
 
 
 if __name__ == '__main__':
+    lccv_dict = {'best_f': [], 'cost': []}
+    ipl_dict = {'best_f': [], 'cost': []}
+    random_dict = {'best_f': [], 'cost': []}
+
     dataset_id = 6
-    root = logging.getLogger()
-    root.setLevel(logging.INFO)
+    print(f'Available budget = {10 * 16000}')
+    for _ in tqdm(range(20)):
 
-    fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+        root = logging.getLogger()
+        root.setLevel(logging.INFO)
+
+        fig, ax = plt.subplots(1, 2, figsize=(10, 5))
     
-    ax[0].set_xlabel('anchor_size')
-    ax[1].set_xlabel('anchor_size')
-    ax[0].set_ylabel('score')
+        # ax[0].set_xlabel('anchor_size')
+        # ax[1].set_xlabel('anchor_size')
+        # ax[0].set_ylabel('score')
 
-    ax[0].set_title(f'LCCV on dataset {dataset_id}')
-    ax[1].set_title(f'IPL on dataset {dataset_id}')
+        # ax[0].set_title(f'LCCV on dataset {dataset_id}')
+        # ax[1].set_title(f'IPL on dataset {dataset_id}')
 
-    lccv_file, ipl_file = run(parse_args(dataset_idx=dataset_id), filename='first_try')
-    if lccv_file:
-        lccv_df = pd.read_csv(lccv_file)
-        for id in lccv_df['config_id'].unique():
-            selection = (lccv_df['config_id'] == id )
-            scores = lccv_df[selection]['score'].reset_index(drop=True)
-            anchors = lccv_df[selection]['anchor'].reset_index(drop=True)
-            sort = np.argsort(anchors)
-            if id == 0:
-                ax[0].hlines(scores, xmin=0, xmax=lccv_df['anchor'].max(), linestyle='--')
-            else:
-                ax[0].plot(anchors[sort], scores[sort], linestyle=':')
+        lccv_file, ipl_file, lccv, ipl, random = run(parse_args(dataset_idx=dataset_id))
 
-    if ipl_file:
-        ipl_df = pd.read_csv(ipl_file)
+
+        lccv_dict['cost'] += [lccv[0]]
+        lccv_dict['best_f'] += [lccv[1]]
         
-        for id in ipl_df['config_id'].unique():
-            selection = (ipl_df['config_id'] == id )
-            scores = ipl_df[selection]['score'].reset_index(drop=True)
-            anchors = ipl_df[selection]['anchor'].reset_index(drop=True)
-            sort = np.argsort(anchors)
-            if id == 0:
-                ax[1].hlines(scores, xmin=0, xmax=ipl_df['anchor'].max(), linestyle='--')
-            else:
-                ax[1].plot(anchors[sort], scores[sort], linestyle=':')
-    plt.show()
+        ipl_dict['cost'] += [ipl[0]]
+        ipl_dict['best_f'] += [ipl[1]]
+
+        random_dict['cost'] += [random[0]]
+        random_dict['best_f'] += [random[1]]
+        # if lccv_file:
+        #     lccv_df = pd.read_csv(lccv_file)
+        #     for id in lccv_df['config_id'].unique():
+        #         selection = (lccv_df['config_id'] == id )
+        #         scores = lccv_df[selection]['score'].reset_index(drop=True)
+        #         anchors = lccv_df[selection]['anchor'].reset_index(drop=True)
+        #         sort = np.argsort(anchors)
+        #         if id == 0:
+        #             ax[0].hlines(scores, xmin=0, xmax=lccv_df['anchor'].max(), linestyle='--')
+        #         else:
+        #             ax[0].plot(anchors[sort], scores[sort], linestyle=':')
+
+        # if ipl_file:
+        #     ipl_df = pd.read_csv(ipl_file)
+        
+        #     for id in ipl_df['config_id'].unique():
+        #         selection = (ipl_df['config_id'] == id )
+        #         scores = ipl_df[selection]['score'].reset_index(drop=True)
+        #         anchors = ipl_df[selection]['anchor'].reset_index(drop=True)
+        #         sort = np.argsort(anchors)
+        #         if id == 0:
+        #             ax[1].hlines(scores, xmin=0, xmax=ipl_df['anchor'].max(), linestyle='--')
+        #         else:
+        #             ax[1].plot(anchors[sort], scores[sort], linestyle=':')
+        # plt.show()
+
+    print(f"---------- Experiment results for dataset {dataset_id} --------------- \n")
+    print(f"""
+    LCCV results \n
+    |       | mean | std  | \n 
+    | score | {round(np.mean(lccv_dict['best_f']), 3)} | {round(np.std(lccv_dict['best_f']), 3)} | \n
+    | cost  | {round(np.mean(lccv_dict['best_f']), 3)} | {round(np.std(lccv_dict['cost']), 3)} | \n 
+    """)
+        
+    print(f"""
+    IPL results \n 
+    |       | mean | std  | \n 
+    | score | {round(np.mean(ipl_dict['best_f']), 3)} | {round(np.std(ipl_dict['best_f']), 3)} | \n
+    | cost  | {round(np.mean(ipl_dict['best_f']), 3)} | {round(np.std(ipl_dict['cost']), 3)} | \n 
+    """)
+        
+    print(f"""
+    Random results \n 
+    |       | avg  | std  | \n 
+    | score | {round(np.mean(random_dict['best_f']), 3)} | {round(np.std(random_dict['best_f']), 3)} | \n
+    | cost  | {round(np.mean(random_dict['best_f']), 3)} | {round(np.std(random_dict['cost']), 3)} | \n 
+    """)
+

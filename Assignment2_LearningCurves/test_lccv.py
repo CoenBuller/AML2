@@ -4,6 +4,7 @@ import logging
 import matplotlib.pyplot as plt
 import pandas as pd
 import os
+import numpy as np
 
 from tqdm import tqdm
 from lccv import LCCV
@@ -33,7 +34,7 @@ def parse_args():
     # max_anchor_size: connected to the configurations_performance_file. The max value upon which anchors are sampled
     parser.add_argument('--minimal_anchor', type=int, default=256)
     parser.add_argument('--max_anchor_size', type=int, default=16000)
-    parser.add_argument('--num_iterations', type=int, default=20)
+    parser.add_argument('--num_iterations', type=int, default=6)
 
     return parser.parse_args()
 
@@ -61,8 +62,17 @@ def run(args):
             best_so_far = final_result
         x_values = [i[0] for i in result]
         y_values = [i[1] for i in result]
-        plt.plot(x_values, y_values, "-o")
+        if len(result) == 1:
+            plt.hlines(y_values, xmin=args.minimal_anchor, xmax=args.max_anchor_size)
+        else:
+            plt.plot(x_values, y_values, linestyle="--")
+            plt.scatter(x_values[-1], y_values[-1], marker='o')
 
+
+    plt.xlabel('Anchor size', fontsize=14)
+    plt.ylabel('Score', fontsize=14)
+    plt.tick_params(axis='both', labelsize=14)
+    plt.grid(visible=True, which='both', alpha=0.3)
     plt.show()
 
 
