@@ -68,7 +68,7 @@ def run(args, filename: str | None =None):
 
     lccv = LCCV(surrogate_model=surrogate_model, minimal_anchor=args.minimal_anchor, final_anchor=args.max_anchor_size, budget=budget)
     best_f = None
-    config_id = 0
+    lccv_id = 0
     while lccv.budget > df['anchor_size'].unique().sum():
         config = config_space.sample_configuration()
 
@@ -85,10 +85,10 @@ def run(args, filename: str | None =None):
         for anchor, score in lccv.results[config_tuple]:
             theta_dict['score'] = score
             theta_dict['anchor'] = anchor
-            theta_dict['config_id'] = config_id
+            theta_dict['config_id'] = lccv_id
             lccv_results_df.loc[len(lccv_results_df)] = theta_dict #type: ignore
 
-        config_id += 1
+        lccv_id += 1
         
 
     if filename is not None:
@@ -108,7 +108,7 @@ def run(args, filename: str | None =None):
     anchors = np.linspace(args.minimal_anchor, int(0.4*args.max_anchor_size), 5).astype(np.int32) # Anchor sizes that evaluate per configuration
     ipl = IPL(surrogate_model=surrogate_model, minimal_anchor=args.minimal_anchor, final_anchor=args.max_anchor_size, budget=budget, anchors=anchors)
         
-    config_id = 0
+    ipl_id = 0
     while ipl.budget > np.sum(anchors):
         config = config_space.sample_configuration()
         r = ipl.evaluate_model(best_so_far=best_ipl, conf=dict(config))
@@ -122,10 +122,10 @@ def run(args, filename: str | None =None):
         for anchor, score in ipl.results[tuple(config.values())]:
             theta_dict['score'] = score
             theta_dict['anchor'] = anchor
-            theta_dict['config_id'] = config_id
+            theta_dict['config_id'] = ipl_id
             ipl_results_df.loc[len(ipl_results_df)] = theta_dict #type: ignore
 
-        config_id += 1
+        ipl_id += 1
 
     if filename is not None:
         filename_ipl = filename+"_ipl.csv"
@@ -146,16 +146,16 @@ def run(args, filename: str | None =None):
 
     # Always return a tuple of filenames (or (None, None) if filename not provided)
     if filename is not None:
-        return filename_lccv, filename_ipl, (budget - lccv.budget, best_f), (budget - ipl.budget, best_ipl)  # type: ignore
-    return None, None, (budget - lccv.budget, best_f), (budget - ipl.budget, best_ipl), (cost, best_random)
+        return filename_lccv, filename_ipl, (budget - lccv.budget, best_f, lccv_id+1), (budget - ipl.budget, best_ipl, ipl_id+1), (cost, best_random, int(budget/args.max_anchor_size))  # type: ignore
+    return None, None, (budget - lccv.budget, best_f, lccv_id+1), (budget - ipl.budget, best_ipl, ipl_id+1), (cost, best_random, int(budget/args.max_anchor_size))
 
 
 
 
 if __name__ == '__main__':
-    lccv_dict = {'best_f': [], 'cost': []}
-    ipl_dict = {'best_f': [], 'cost': []}
-    random_dict = {'best_f': [], 'cost': []}
+    lccv_dict = {'best_f': [], 'cost': [], 'num_hpc': []}
+    ipl_dict = {'best_f': [], 'cost': [], 'num_hpc': []}
+    random_dict = {'best_f': [], 'cost': [], 'num_hpc': []}
 
     dataset_id = 6
     print(f'Available budget = {10 * 16000}')
@@ -178,12 +178,15 @@ if __name__ == '__main__':
 
         lccv_dict['cost'] += [lccv[0]]
         lccv_dict['best_f'] += [lccv[1]]
+        lccv_dict['num_hpc'] += [lccv[2]]
         
         ipl_dict['cost'] += [ipl[0]]
         ipl_dict['best_f'] += [ipl[1]]
+        ipl_dict['num_hpc'] += [ipl[2]]
 
         random_dict['cost'] += [random[0]]
         random_dict['best_f'] += [random[1]]
+        random_dict['num_hpc'] += [random[2]]
         # if lccv_file:
         #     lccv_df = pd.read_csv(lccv_file)
         #     for id in lccv_df['config_id'].unique():
@@ -216,6 +219,7 @@ if __name__ == '__main__':
     |       | mean | std  | \n 
     | score | {round(np.mean(lccv_dict['best_f']), 3)} | {round(np.std(lccv_dict['best_f']), 3)} | \n
     | cost  | {round(np.mean(lccv_dict['best_f']), 3)} | {round(np.std(lccv_dict['cost']), 3)} | \n 
+    | #hpc  | {round(np.mean(lccv_dict['num_hpc']), 3)} | {round(np.std(lccv_dict['num_hpc']), 3)} | \n
     """)
         
     print(f"""
@@ -223,12 +227,15 @@ if __name__ == '__main__':
     |       | mean | std  | \n 
     | score | {round(np.mean(ipl_dict['best_f']), 3)} | {round(np.std(ipl_dict['best_f']), 3)} | \n
     | cost  | {round(np.mean(ipl_dict['best_f']), 3)} | {round(np.std(ipl_dict['cost']), 3)} | \n 
+    | #hpc  | {round(np.mean(ipl_dict['num_hpc']), 3)} | {round(np.std(ipl_dict['num_hpc']), 3)} | \n
     """)
         
     print(f"""
     Random results \n 
     |       | avg  | std  | \n 
     | score | {round(np.mean(random_dict['best_f']), 3)} | {round(np.std(random_dict['best_f']), 3)} | \n
-    | cost  | {round(np.mean(random_dict['best_f']), 3)} | {round(np.std(random_dict['cost']), 3)} | \n 
+    | cost  | {round(np.mean(random_dict['best_f']), 3)} | {round(np.std(random_dict['cost']), 3)} | \n
+    | #hpc  | {round(np.mean(random_dict['num_hpc']), 3)} | {round(np.std(random_dict['num_hpc']), 3)} | \n
+ 
     """)
 
