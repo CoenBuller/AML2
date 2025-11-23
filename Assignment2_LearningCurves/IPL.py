@@ -174,7 +174,7 @@ class IPL(VerticalModelEvaluator):
         # Predict final performance 
         pred_final = float(IPL.inverse_power_law(self.final_anchor, *popt))
 
-        print(f"[IPL] r²={r2:.3f} | pred_final={pred_final:.4f} | best={best_so_far if best_so_far is not None else float('inf'):.4f}")
+        # print(f"[IPL] r²={r2:.3f} | pred_final={pred_final:.4f} | best={best_so_far if best_so_far is not None else float('inf'):.4f}")
 
         # Case B: IPL says it's promising, evaluate final
         if pred_final < best_so_far:
