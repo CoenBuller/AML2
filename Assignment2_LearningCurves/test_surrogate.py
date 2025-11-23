@@ -26,16 +26,16 @@ def run(args):
     df = pd.read_csv(args.configurations_performance_file)
     X, y = df.iloc[:, :-1], df.iloc[:, -1]
 
-    #Split data into train/test split. 
+    # Split data into train/test split. 
     train, test, y_train, y_test = train_test_split(X, y,test_size=0.4, random_state=2025)
     train['score'] = y_train
     test['score'] = y_test
 
-    #Instantiate surrogate model and fit to train data
+    # Instantiate surrogate model and fit to train data
     surrogate_model = SurrogateModel(config_space)
     surrogate_model.fit(train)
 
-    #Test surrogate model
+    # Test surrogate model
     y_pred = []
     for i in tqdm(range(len(test))):
         prediction = surrogate_model.predict(test.iloc[i, :-2], test.iloc[i, -2])

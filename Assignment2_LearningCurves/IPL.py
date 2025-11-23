@@ -136,7 +136,7 @@ class IPL(VerticalModelEvaluator):
         anchors_in_data = sorted(set(int(a) for a in self.surrogate_model.df["anchor_size"]))
         final_anchor = anchors_in_data[-1]
 
-        # Fixed early schedule, only use anchors < 40% of final anchor
+        # Fixed early schedule, only use anchors < 30% of final anchor
         if self.anchors is None:
             cutoff = int(0.3 * final_anchor)
             schedule = [a for a in anchors_in_data if a < cutoff]
@@ -173,8 +173,6 @@ class IPL(VerticalModelEvaluator):
 
         # Predict final performance 
         pred_final = float(IPL.inverse_power_law(self.final_anchor, *popt))
-
-        # print(f"[IPL] r²={r2:.3f} | pred_final={pred_final:.4f} | best={best_so_far if best_so_far is not None else float('inf'):.4f}")
 
         # Case B: IPL says it's promising, evaluate final
         if pred_final < best_so_far:

@@ -166,12 +166,7 @@ if __name__ == '__main__':
 
         fig, ax = plt.subplots(1, 2, figsize=(10, 5))
     
-        # ax[0].set_xlabel('anchor_size')
-        # ax[1].set_xlabel('anchor_size')
-        # ax[0].set_ylabel('score')
 
-        # ax[0].set_title(f'LCCV on dataset {dataset_id}')
-        # ax[1].set_title(f'IPL on dataset {dataset_id}')
 
         lccv_file, ipl_file, lccv, ipl, random = run(parse_args(dataset_idx=dataset_id))
 
@@ -187,31 +182,7 @@ if __name__ == '__main__':
         random_dict['cost'] += [random[0]]
         random_dict['best_f'] += [random[1]]
         random_dict['num_hpc'] += [random[2]]
-        # if lccv_file:
-        #     lccv_df = pd.read_csv(lccv_file)
-        #     for id in lccv_df['config_id'].unique():
-        #         selection = (lccv_df['config_id'] == id )
-        #         scores = lccv_df[selection]['score'].reset_index(drop=True)
-        #         anchors = lccv_df[selection]['anchor'].reset_index(drop=True)
-        #         sort = np.argsort(anchors)
-        #         if id == 0:
-        #             ax[0].hlines(scores, xmin=0, xmax=lccv_df['anchor'].max(), linestyle='--')
-        #         else:
-        #             ax[0].plot(anchors[sort], scores[sort], linestyle=':')
 
-        # if ipl_file:
-        #     ipl_df = pd.read_csv(ipl_file)
-        
-        #     for id in ipl_df['config_id'].unique():
-        #         selection = (ipl_df['config_id'] == id )
-        #         scores = ipl_df[selection]['score'].reset_index(drop=True)
-        #         anchors = ipl_df[selection]['anchor'].reset_index(drop=True)
-        #         sort = np.argsort(anchors)
-        #         if id == 0:
-        #             ax[1].hlines(scores, xmin=0, xmax=ipl_df['anchor'].max(), linestyle='--')
-        #         else:
-        #             ax[1].plot(anchors[sort], scores[sort], linestyle=':')
-        # plt.show()
 
     print(f"---------- Experiment results for dataset {dataset_id} --------------- \n")
     print(f"""
