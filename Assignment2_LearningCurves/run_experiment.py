@@ -157,8 +157,8 @@ if __name__ == '__main__':
     ipl_dict = {'best_f': [], 'cost': [], 'num_hpc': []}
     random_dict = {'best_f': [], 'cost': [], 'num_hpc': []}
 
-    dataset_id = 1457
-    print(f'Available budget = {10 * 1200}')
+    dataset_id = 11
+    print(f'Available budget = {10 * 500}')
     for _ in tqdm(range(20)):
 
         root = logging.getLogger()

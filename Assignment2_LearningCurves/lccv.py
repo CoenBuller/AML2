@@ -6,8 +6,8 @@ from surrogate_model import SurrogateModel
 from vertical_model_evaluator import VerticalModelEvaluator
 
 class LCCV(VerticalModelEvaluator):
-    def __init__(self, surrogate_model: SurrogateModel, minimal_anchor: int, final_anchor: int, budget: int, results={}):
-        super().__init__(surrogate_model=surrogate_model, minimal_anchor=minimal_anchor, final_anchor=final_anchor, budget=budget, results=results)
+    def __init__(self, surrogate_model: SurrogateModel, minimal_anchor: int, final_anchor: int, budget: int, results={}, anchors=None):
+        super().__init__(surrogate_model=surrogate_model, minimal_anchor=minimal_anchor, final_anchor=final_anchor, budget=budget, results=results, anchors=anchors)
     
     @staticmethod
     def optimistic_extrapolation(
@@ -62,6 +62,8 @@ class LCCV(VerticalModelEvaluator):
         
         try:
             steps = np.linspace(0.3*self.final_anchor, 0.8*self.final_anchor, 6) # type: ignore
+            if self.anchors is not None:
+                steps = self.anchors
             for step in steps:
                 if len(self.results[configuration]) < 2: # Cannot extrapolate if there arent two points 
                     performance = self.surrogate_model.predict(conf, step)
