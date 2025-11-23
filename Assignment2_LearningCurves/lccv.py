@@ -2,6 +2,7 @@ import logging
 import numpy as np
 import typing
 
+from tqdm import tqdm
 from surrogate_model import SurrogateModel
 from vertical_model_evaluator import VerticalModelEvaluator
 
@@ -64,7 +65,7 @@ class LCCV(VerticalModelEvaluator):
             steps = np.linspace(0.3*self.final_anchor, 0.8*self.final_anchor, 6) # type: ignore
             if self.anchors is not None:
                 steps = self.anchors
-            for step in steps:
+            for step in tqdm(steps):
                 if len(self.results[configuration]) < 2: # Cannot extrapolate if there arent two points 
                     performance = self.surrogate_model.predict(conf, step)
                     self.results[configuration] += [(int(step), float(performance))]
@@ -78,7 +79,7 @@ class LCCV(VerticalModelEvaluator):
                     p_T = LCCV.optimistic_extrapolation(prev2[0], prev2[1], prev1[0], prev1[1], self.final_anchor)
 
                     if p_T > best_so_far: # If optimistic extrapolation does not outperform best so far, we can discard this configuration
-                        break
+                        return self.results[configuration]
                     
                     # If optimistic extrapolation does outperform the best so far, we can evaluate the performance using the surrogate
                     performance = self.surrogate_model.predict(conf, step)

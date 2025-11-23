@@ -34,7 +34,7 @@ def parse_args(data_id):
     # max_anchor_size: connected to the configurations_performance_file. The max value upon which anchors are sampled
     parser.add_argument('--minimal_anchor', type=int, default=256)
     parser.add_argument('--max_anchor_size', type=int, default=500)
-    parser.add_argument('--num_iterations', type=int, default=20)
+    parser.add_argument('--num_iterations', type=int, default=10)
 
     return parser.parse_args()
 
@@ -52,11 +52,10 @@ def run(args):
     surrogate_model.fit(df)
 
     fig, ax = plt.subplots(1, 2, figsize=(12, 8))
-    print(args.max_anchor_size)
-    lccv = LCCV(surrogate_model, args.minimal_anchor, args.max_anchor_size, budget=200000000, anchors=df['anchor_size'][:-1])
+    lccv = LCCV(surrogate_model, args.minimal_anchor, args.max_anchor_size, budget=200000000, anchors=df['anchor_size'].unique()[:-2])
     best_so_far = None
     
-    for idx in range(args.num_iterations):
+    for idx in tqdm(range(args.num_iterations)):
         theta_new = dict(config_space.sample_configuration())
         result = lccv.evaluate_model(best_so_far, theta_new)
         final_result = result[-1][1]
@@ -67,16 +66,14 @@ def run(args):
         if len(x_values) == 1:
             ax[0].hlines(y_values, args.minimal_anchor, args.max_anchor_size, linestyle='--')
         else:
-            ax[0].plot(x_values, y_values, ":")
-            ax[0].scatter(x_values[-1], final_result, marker='o')
-        ax[0].set_xlabel('Anchor size')
-        ax[0].set_ylabel('Score')
+            ax[0].plot(x_values, y_values, linestyle=":")
+            ax[0].scatter(x_values[-1], y_values[-1], marker='o')
 
 
     ipl = IPL(surrogate_model, args.minimal_anchor, args.max_anchor_size, budget=float('inf'))
     best_so_far = None
     
-    for idx in range(args.num_iterations):
+    for idx in tqdm(range(args.num_iterations)):
         theta_new = dict(config_space.sample_configuration())
         result = ipl.evaluate_model(best_so_far, theta_new)
         final_result = result[-1][1]
@@ -88,7 +85,9 @@ def run(args):
             ax[1].hlines(y_values, args.minimal_anchor, args.max_anchor_size, linestyle='--')
         else:
             ax[1].plot(x_values, y_values, ":")
-        ax[1].scatter(x_values[-1], y_values[-1], marker='o')
+            ax[1].scatter(x_values[-1], y_values[-1], marker='o')
+    ax[0].set_xlabel('Anchor size')
+    ax[0].set_ylabel('Score')
     ax[1].set_xlabel('Anchor size')
 
     plt.show()
